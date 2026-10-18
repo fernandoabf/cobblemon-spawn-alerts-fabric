@@ -1,0 +1,25 @@
+# Default: normalize line endings to LF on checkin, convert back per-platform on checkout.
+* text=auto
+
+# Keep the Unix Gradle wrapper script as LF even on Windows clones — it's a POSIX
+# shell script and will refuse to run with CRLF line endings.
+gradlew text eol=lf
+
+# Windows batch file stays CRLF.
+gradlew.bat text eol=crlf
+
+# Source files are text.
+*.kt      text
+*.java    text
+*.gradle  text
+*.properties text
+*.toml    text
+*.json    text
+*.md      text
+*.mcmeta  text
+*.txt     text
+
+# Binary assets — never modify, never diff.
+*.png     binary
+*.jar     binary
+*.zip     binary

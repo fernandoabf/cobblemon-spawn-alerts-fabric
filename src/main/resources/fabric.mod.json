@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "spawnalerts",
+  "version": "${version}",
+  "name": "Spawn Alerts",
+  "description": "Tells the players when a rare Cobblemon Pokémon spawns (shiny, Alpha, legendary...): which Pokémon and in which biome, with coordinates only if the server wants them. Server-side: players without it can join.",
+  "authors": [
+    "fernandoabf"
+  ],
+  "contact": {
+    "homepage": "https://github.com/fernandoabf/cobblemon-spawn-alerts-fabric",
+    "sources": "https://github.com/fernandoabf/cobblemon-spawn-alerts-fabric",
+    "issues": "https://github.com/fernandoabf/cobblemon-spawn-alerts-fabric/issues"
+  },
+  "license": "All-Rights-Reserved",
+  "icon": "assets/spawnalerts/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      {
+        "adapter": "kotlin",
+        "value": "com.fernandoabf.spawnalerts.SpawnAlertsMod"
+      }
+    ]
+  },
+  "depends": {
+    "minecraft": "~1.21.1",
+    "fabricloader": ">=0.16.10",
+    "fabric-api": "*",
+    "fabric-language-kotlin": ">=1.13.0",
+    "cobblemon": ">=1.8.0"
+  }
+}

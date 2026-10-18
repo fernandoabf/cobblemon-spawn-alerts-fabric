@@ -1,0 +1,37 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+bin/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+*.launch
+
+# VS Code
+.vscode/
+
+# Run directories
+run/
+runs/
+logs/
+*.log
+
+# Kotlin compiler caches
+.kotlin/
+
+# Real Cobblemon jar for compile/dev runtime (downloaded by build.gradle) - never commit it
+run-libs/
+
+# OS cruft
+.DS_Store
+Thumbs.db

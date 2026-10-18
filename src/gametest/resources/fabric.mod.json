@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "spawnalerts-gametest",
+  "version": "0.0.0",
+  "name": "Spawn Alerts - gametests (dev only)",
+  "description": "Headless Fabric gametests for Spawn Alerts. Never shipped.",
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": [
+      "com.fernandoabf.spawnalerts.gametest.SpawnAlertsGameTest"
+    ]
+  },
+  "depends": {
+    "spawnalerts": "*",
+    "fabric-gametest-api-v1": "*"
+  }
+}

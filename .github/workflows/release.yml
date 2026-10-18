@@ -1,0 +1,121 @@
+name: Release
+
+# Publishes a GitHub Release with the mod jar for each new version. A push that changes
+# gradle.properties, CHANGELOG.md or this file runs it; when mod_version has no release yet (tag
+# v<mod_version>), the jar is built on that commit, the gametests run on the dev server and on a
+# production server, and the jar is published with the version's section of CHANGELOG.md.
+# To release a version: bump mod_version, write its "## <version> — <date>" section and push.
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - gradle.properties
+      - CHANGELOG.md
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+concurrency:
+  group: release
+
+jobs:
+  check:
+    name: Look for the release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      released: ${{ steps.version.outputs.released }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Read mod_version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version=$(sed -n 's/^mod_version=//p' gradle.properties)
+          tag="v$version"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            released=true
+            echo "::notice::$tag is already released, nothing to do."
+          elif gh api "repos/$GH_REPO/git/ref/tags/${tag//+/%2B}" > /dev/null 2>&1; then
+            echo "::error::Tag $tag exists without a release: delete the tag or bump mod_version."
+            exit 1
+          else
+            released=false
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "released=$released" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Build, test and publish
+    needs: check
+    if: needs.check.outputs.released == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      TAG: ${{ needs.check.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # The version's CHANGELOG.md section with its wrapped lines joined (release notes keep single
+      # line breaks), plus how to install.
+      - name: Write the release notes
+        run: |
+          short="${VERSION%%+*}"
+          awk -v v="$short" '/^## / { if (found) exit; found = ($2 "" == v ""); next } found' CHANGELOG.md \
+            | awk 'function flush() { if (line != "") print line; line = "" }
+                   /^[[:space:]]*$/ { flush(); print; next }
+                   /^(#|\||- |\* |[0-9]+\. )/ { flush(); line = $0; next }
+                   { sub(/^[[:space:]]+/, ""); line = (line == "" ? $0 : line " " $0) }
+                   END { flush() }' \
+            | sed '/./,$!d' > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md has no section for $short (a line '## $short — <date>')."
+            exit 1
+          fi
+          minecraft=$(sed -n 's/^minecraft_version=//p' gradle.properties)
+          cobblemon=$(sed -n 's/^cobblemon_version=//p' gradle.properties)
+          loader=$(jq -r '.depends.fabricloader' src/main/resources/fabric.mod.json | sed 's/^>=//')
+          cat >> "$RUNNER_TEMP/notes.md" <<EOF
+
+          ## Instalação
+
+          Baixe o \`spawnalerts-$VERSION.jar\` em **Assets**, logo abaixo, e coloque na pasta \`mods/\`:
+
+          - **Servidor:** só no servidor. Os jogadores entram sem ter o mod.
+          - **Single player:** na pasta \`mods/\` do jogo.
+
+          Precisa de Minecraft $minecraft com o Fabric Loader $loader ou mais novo, [Fabric API](https://modrinth.com/mod/fabric-api) e [Cobblemon](https://modrinth.com/mod/cobblemon) $(echo "$cobblemon" | cut -d. -f1,2) (testado com o $cobblemon).
+          EOF
+          cat "$RUNNER_TEMP/notes.md"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Build and run the gametests on the dev and on a production server
+        run: ./gradlew build runGametest runProductionGametest --stacktrace
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          minecraft=$(sed -n 's/^minecraft_version=//p' gradle.properties)
+          gh release create "$TAG" "build/libs/spawnalerts-$VERSION.jar" --target "$GITHUB_SHA" \
+            --title "Spawn Alerts ${VERSION%%+*} (Minecraft $minecraft)" --notes-file "$RUNNER_TEMP/notes.md"

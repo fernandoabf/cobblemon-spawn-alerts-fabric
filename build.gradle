@@ -1,0 +1,185 @@
+plugins {
+    id 'fabric-loom'
+    id 'org.jetbrains.kotlin.jvm'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    // Loom already adds the Fabric maven, Mojang's libraries and Maven Central.
+    mavenCentral()
+}
+
+if (JavaVersion.current() < JavaVersion.VERSION_21) {
+    throw new GradleException("[${project.archives_base_name}] Gradle is running on Java ${JavaVersion.current()}; " +
+            "Minecraft 1.21.1 / Loom need JDK 21. Install a JDK 21 and point JAVA_HOME to it.")
+}
+
+// ---------------------------------------------------------------------------
+// Real Cobblemon (the same jar the modpack/server runs). We compile against it (its spawn
+// event) and run it in dev/gametests; it is never shipped. Downloaded from Modrinth into
+// run-libs/ (git-ignored) the first time Gradle configures the project.
+// ---------------------------------------------------------------------------
+def cobblemonJar = file("run-libs/Cobblemon-fabric-${project.cobblemon_version}.jar")
+
+if (!cobblemonJar.isFile() && !gradle.startParameter.offline) {
+    def url = project.cobblemon_url
+    def expected = project.cobblemon_sha1
+    logger.lifecycle("[${project.archives_base_name}] Downloading Cobblemon ${project.cobblemon_version}: ${url}")
+    cobblemonJar.parentFile.mkdirs()
+    def tmp = new File(cobblemonJar.parentFile, cobblemonJar.name + '.part')
+    def conn = new URL(url).openConnection()
+    conn.setRequestProperty('User-Agent', "${project.archives_base_name}-build (github.com/fernandoabf)")
+    conn.inputStream.withStream { input -> tmp.withOutputStream { out -> out << input } }
+    def sha1 = java.security.MessageDigest.getInstance('SHA-1').digest(tmp.bytes).encodeHex().toString()
+    if (sha1 != expected) {
+        tmp.delete()
+        throw new GradleException("[${project.archives_base_name}] Cobblemon jar SHA-1 mismatch: expected ${expected}, got ${sha1}")
+    }
+    tmp.renameTo(cobblemonJar)
+}
+if (!cobblemonJar.isFile()) {
+    throw new GradleException("[${project.archives_base_name}] ${cobblemonJar} not found. Download it from ${project.cobblemon_url} into run-libs/.")
+}
+
+// Loom strips the jar-in-jar list ("jars" in fabric.mod.json) from remapped mod dependencies, so
+// in dev the libraries Cobblemon nests (GraalJS/Truffle for Showdown, ICU4J, MongoDB driver) must
+// be put on the runtime classpath by us, taken from the real Cobblemon jar (fabric-language-kotlin
+// is excluded: it comes from Maven below, same version).
+def cobblemonJijDir = layout.buildDirectory.dir('cobblemon-jij')
+def extractCobblemonJij = tasks.register('extractCobblemonJij', Sync) {
+    group = project.archives_base_name
+    description = 'Extracts the jar-in-jar libraries nested in the real Cobblemon jar (run-libs/).'
+    from(zipTree(cobblemonJar)) {
+        include 'META-INF/jars/*.jar'
+        exclude 'META-INF/jars/fabric-language-kotlin-*.jar'
+        eachFile { it.path = it.name }
+    }
+    includeEmptyDirs = false
+    into cobblemonJijDir
+}
+
+sourceSets {
+    // Headless Fabric gametests (fabric-gametest-api-v1), run on a dedicated test server.
+    gametest {
+        compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+        runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+    }
+}
+
+loom {
+    mods {
+        spawnalerts {
+            sourceSet sourceSets.main
+        }
+        register('spawnalerts-gametest') {
+            sourceSet sourceSets.gametest
+        }
+    }
+
+    runs {
+        // ./gradlew runGametest -> headless dedicated gametest server that runs every @GameTest and
+        // exits by itself (exit code != 0 if a required test fails).
+        gametest {
+            server()
+            name 'Game Test (headless server)'
+            source sourceSets.gametest
+            runDir 'build/gametest'
+            vmArg '-Xmx3G'
+            vmArg '-Dfabric-api.gametest'
+            vmArg "-Dfabric-api.gametest.report-file=${file('build/gametest/junit.xml').absolutePath}"
+            ideConfigGenerated false
+        }
+    }
+}
+
+// Fresh gametest world on every run (the gametest server otherwise reuses build/gametest/world).
+tasks.matching { it.name == 'runGametest' }.configureEach {
+    doFirst {
+        delete(file('build/gametest/world'))
+    }
+}
+
+// ./gradlew runProductionGametest -> the same gametests on a production Fabric server: the
+// official installer/launcher, intermediary names, our remapped jar and the published Fabric API
+// and Cobblemon jars, as on a real server. Catches what dev hides (a reference by a Mojang name, for one).
+def gametestDevJar = tasks.register('gametestDevJar', Jar) {
+    from sourceSets.gametest.output
+    archiveClassifier = 'gametest-dev'
+    destinationDirectory = layout.buildDirectory.dir('devlibs')
+}
+def remapGametestJar = tasks.register('remapGametestJar', net.fabricmc.loom.task.RemapJarTask) {
+    inputFile = gametestDevJar.flatMap { it.archiveFile }
+    classpath.from(sourceSets.main.output, sourceSets.main.compileClasspath)
+    archiveClassifier = 'gametest'
+    destinationDirectory = layout.buildDirectory.dir('prodgametest-mods')
+    addNestedDependencies = false
+}
+tasks.register('runProductionGametest', net.fabricmc.loom.task.prod.ServerProductionRunTask) {
+    group = 'verification'
+    description = 'Runs every gametest on a production Fabric server with the remapped jars.'
+    mods.from(remapGametestJar)
+    jvmArgs.addAll('-Xmx3G', '-Dfabric-api.gametest',
+            "-Dfabric-api.gametest.report-file=${file('build/prodgametest/junit.xml').absolutePath}")
+    runDir = layout.buildDirectory.dir('prodgametest')
+    doFirst {
+        delete(file('build/prodgametest/world'))
+        file('build/prodgametest').mkdirs()
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+
+    // Full Fabric API (Cobblemon needs it; the gametests use fabric-gametest-api-v1).
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    modCompileOnly files(cobblemonJar)
+    modLocalRuntime files(cobblemonJar)
+    localRuntime fileTree(cobblemonJijDir) {
+        include '*.jar'
+        builtBy extractCobblemonJij
+    }
+
+    // Published (intermediary) jars for the production run; Loom adds our remapJar itself.
+    productionRuntimeMods "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    productionRuntimeMods files(cobblemonJar)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+jar {
+    inputs.property 'archivesName', project.base.archivesName
+    from('LICENSE') {
+        rename { "${it}_${inputs.properties.archivesName}" }
+    }
+}
