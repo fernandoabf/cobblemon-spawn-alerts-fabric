@@ -3,6 +3,12 @@
 O que muda em cada versão. O jar de cada versão fica nas
 [Releases](https://github.com/fernandoabf/cobblemon-spawn-alerts-fabric/releases).
 
+## 1.1.0 — 2026-10-18
+
+- **Megas selvagens não são anunciados** (`announceMega`, desligado por padrão): um Pokémon numa forma Mega
+  do Mega Showdown, posto no mundo por um datapack, fica de surpresa para quem achar, mesmo sendo Alfa ou
+  shiny. Com `announceMega` ligado, ele é anunciado como qualquer outro.
+
 ## 1.0.0 — 2026-10-18
 
 Primeira versão, para o Cobblemon 1.8.2 no Fabric 1.21.1.

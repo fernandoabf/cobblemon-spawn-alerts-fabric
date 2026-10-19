@@ -35,6 +35,11 @@ object SpawnAlertsConfig {
         val ignoredSpecies: List<String> = emptyList(),
         /** Every Pokémon spawn: floods the chat, Cobblemon spawns dozens a minute. */
         val announceAll: Boolean = false,
+        /**
+         * Wild Mega Pokémon (a data pack's spawns in a Mega form), even when they are Alphas or shiny.
+         * Off: they stay a surprise for whoever finds them.
+         */
+        val announceMega: Boolean = false,
 
         // How much of the place is told: each part goes into {location}.
         val showBiome: Boolean = true,
@@ -80,6 +85,7 @@ object SpawnAlertsConfig {
         "extraSpecies" to "Species always announced, e.g. [\"dratini\", \"cobblemon:riolu\"].",
         "ignoredSpecies" to "Species never announced, not even shiny or Alpha.",
         "announceAll" to "Announce every spawn. Floods the chat: Cobblemon spawns dozens of Pokémon a minute.",
+        "announceMega" to "Announce wild Mega Pokémon (a data pack's spawns in a Mega form, with Mega Showdown), even Alphas or shiny ones. false keeps them a surprise for whoever finds them.",
         "showBiome" to "What {location} tells: the biome (biomeFormat), the exact coordinates (coordinatesFormat) and the name of the nearest player (nearestPlayerFormat).",
         "sameDimensionOnly" to "Only players in the dimension of the spawn get the message.",
         "radius" to "Only players within this many blocks of the spawn get the message (0: everyone).",
@@ -109,6 +115,7 @@ object SpawnAlertsConfig {
             extraSpecies = json.strings("extraSpecies", d.extraSpecies),
             ignoredSpecies = json.strings("ignoredSpecies", d.ignoredSpecies),
             announceAll = json.bool("announceAll", d.announceAll),
+            announceMega = json.bool("announceMega", d.announceMega),
             showBiome = json.bool("showBiome", d.showBiome),
             showCoordinates = json.bool("showCoordinates", d.showCoordinates),
             showNearestPlayer = json.bool("showNearestPlayer", d.showNearestPlayer),
@@ -144,6 +151,7 @@ object SpawnAlertsConfig {
         out.add("extraSpecies", JsonArray().apply { v.extraSpecies.forEach { add(it) } })
         out.add("ignoredSpecies", JsonArray().apply { v.ignoredSpecies.forEach { add(it) } })
         out.addProperty("announceAll", v.announceAll)
+        out.addProperty("announceMega", v.announceMega)
         out.addProperty("showBiome", v.showBiome)
         out.addProperty("showCoordinates", v.showCoordinates)
         out.addProperty("showNearestPlayer", v.showNearestPlayer)

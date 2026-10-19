@@ -64,6 +64,13 @@ class SpawnAlertsGameTest : FabricGameTest {
         withConfig(SpawnAlertsConfig.Values(enabled = false, announceAll = true)) {
             checks.check(!SpawnAlerts.shouldAnnounce(pokemon("mewtwo").apply { shiny = true })) { "enabled false" }
         }
+        // Mega Showdown's Mega forms are aspects (mega, mega_x, mega_y, mega_z); it is not installed here.
+        val mega = { pokemon("charizard").apply { isAlpha = true; shiny = true; forcedAspects = forcedAspects + "mega_x" } }
+        checks.check(SpawnAlerts.isMega(mega()) && !SpawnAlerts.isMega(pokemon("charizard"))) { "a Mega form is told apart" }
+        checks.check(!SpawnAlerts.shouldAnnounce(mega())) { "wild Megas are a surprise by default, even Alpha and shiny" }
+        withConfig(SpawnAlertsConfig.Values(announceMega = true)) {
+            checks.check(SpawnAlerts.shouldAnnounce(mega())) { "announceMega true announces them" }
+        }
         checks.finish()
     }
 

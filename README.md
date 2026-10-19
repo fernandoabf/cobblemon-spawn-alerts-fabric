@@ -54,6 +54,7 @@ another language.
 | `extraSpecies` | `[]` | Species always announced, e.g. `["dratini", "cobblemon:riolu"]`. |
 | `ignoredSpecies` | `[]` | Species never announced, not even shiny or Alpha. |
 | `announceAll` | `false` | Every spawn (floods the chat: Cobblemon spawns dozens a minute). |
+| `announceMega` | `false` | Wild Mega Pokémon (a data pack's spawns in a Mega Showdown Mega form), even Alpha or shiny ones; off keeps them a surprise. |
 
 **How much of the place is told** (the parts go into `{location}`)
 

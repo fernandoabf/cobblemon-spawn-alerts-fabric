@@ -40,6 +40,7 @@ object SpawnAlerts {
         if (!config.enabled) return false
         val species = pokemon.species.resourceIdentifier
         if (species in config.ignoredSpeciesIds) return false
+        if (!config.announceMega && isMega(pokemon)) return false
         return config.announceAll ||
             species in config.extraSpeciesIds ||
             (config.announceShiny && pokemon.shiny) ||
@@ -49,6 +50,9 @@ object SpawnAlerts {
             (config.announceUltraBeast && pokemon.hasLabels(CobblemonPokemonLabels.ULTRA_BEAST)) ||
             (config.announceParadox && pokemon.hasLabels(CobblemonPokemonLabels.PARADOX))
     }
+
+    /** In a Mega form: Mega Showdown's `mega_evolution` aspects (`mega`, `mega_x`, `mega_y`, `mega_z`). */
+    fun isMega(pokemon: Pokemon): Boolean = pokemon.aspects.any { it == "mega" || it.startsWith("mega_") }
 
     /**
      * Sends the message for a spawn of [pokemon] at [pos] in [biome] to the players the config picks
