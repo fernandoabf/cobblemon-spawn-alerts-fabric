@@ -3,6 +3,21 @@
 O que muda em cada versão. O jar de cada versão fica nas
 [Releases](https://github.com/fernandoabf/cobblemon-spawn-alerts-fabric/releases).
 
+## 1.2.0 — 2026-10-25
+
+- **Modo sentido** (`"mode": "sense"`, desligado por padrão): no lugar do aviso com o nome, o jogador recebe
+  uma frase sorteada que não diz qual Pokémon, nem o bioma, a coordenada ou o que ele tem de raro, como se
+  sentisse: "Você sente uma presença poderosa por perto…". Quem está perto (`senseRadius`, 64 blocos por
+  padrão, na mesma dimensão) recebe a frase de perto; nos mais raros (`senseEveryone`: lendário, mítico,
+  Mega, ultracriatura e paradoxo, por padrão), todo o resto do servidor recebe uma frase de longe ("Uma
+  presença poderosa despertou em algum lugar do mundo…"). Shiny e Alfa só chegam a quem está perto.
+- Um Pokémon que é várias coisas usa a mais notável: lendário, mítico, Mega, ultracriatura, paradoxo, shiny,
+  Alfa.
+- As frases ficam na config (`sensePhrases`, de perto e de longe para cada tipo, em português) e o estilo
+  também (`senseStyle`, cinza em itálico). Quem está perto ouve um sino de ametista baixinho (`playSound`).
+- O log do servidor continua com a linha completa (Pokémon, bioma e coordenadas), para a staff.
+- `/spawnalerts test` mostra também as frases que os jogadores receberiam no modo sentido.
+
 ## 1.1.0 — 2026-10-18
 
 - **Megas selvagens não são anunciados** (`announceMega`, desligado por padrão): um Pokémon numa forma Mega

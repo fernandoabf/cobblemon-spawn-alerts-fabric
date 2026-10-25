@@ -13,12 +13,45 @@ import java.nio.file.Path
 
 /**
  * Server-side options in `config/spawnalerts.json`: what is announced, how much of the place is told
- * and who hears it. Missing keys get their default and the file is rewritten with every option, so
- * new options show up after an update; `/spawnalerts reload` reads it again. The texts are in
- * Brazilian Portuguese by default: the server writes them, so they cannot follow each player's
- * language (the Pokémon and biome names do, see [SpawnAlerts]).
+ * and who hears it, or, in the sense mode, the phrases that tell nothing. Missing keys get their default
+ * and the file is rewritten with every option, so new options show up after an update;
+ * `/spawnalerts reload` reads it again. The texts are in Brazilian Portuguese by default: the server
+ * writes them, so they cannot follow each player's language (the Pokémon and biome names do, see
+ * [SpawnAlerts]).
  */
 object SpawnAlertsConfig {
+    /** The message naming the Pokémon (the default). */
+    const val CLASSIC = "classic"
+
+    /** The players' sense: a phrase that names nothing, never the Pokémon, the place or what makes it rare. */
+    const val SENSE = "sense"
+
+    /** What a spawn is, for the sense mode, from the most notable: a Pokémon in several uses the first. */
+    val SENSE_CATEGORIES = listOf("legendary", "mythical", "mega", "ultra_beast", "paradox", "shiny", "alpha")
+
+    /** A category's phrases: [near] for the players within the sense radius, [far] for everyone else. */
+    data class SensePhrases(val near: List<String>, val far: List<String> = emptyList())
+
+    private val POWERFUL = SensePhrases(
+        near = listOf("Você sente uma presença poderosa por perto…", "O ar ficou pesado de repente…", "Algo antigo despertou não muito longe daqui…"),
+        far = listOf("Uma presença poderosa despertou em algum lugar do mundo…", "O mundo inteiro estremeceu por um instante…", "Algo antigo despertou em algum lugar…"),
+    )
+    private val OTHERWORLDLY = SensePhrases(
+        near = listOf("O espaço parece se dobrar por perto…", "Você sente algo que não pertence a este mundo…"),
+        far = listOf("O espaço se dobrou em algum lugar do mundo…", "Algo que não pertence a este mundo apareceu em algum lugar…"),
+    )
+
+    /** The phrases the sense mode starts with, in Brazilian Portuguese. */
+    val DEFAULT_SENSE_PHRASES: Map<String, SensePhrases> = mapOf(
+        "legendary" to POWERFUL,
+        "mythical" to POWERFUL,
+        "mega" to SensePhrases(near = listOf("Uma energia estranha pulsa por perto…"), far = listOf("Uma energia estranha pulsou em algum lugar do mundo…")),
+        "ultra_beast" to OTHERWORLDLY,
+        "paradox" to OTHERWORLDLY,
+        "shiny" to SensePhrases(near = listOf("Algo brilhou de relance por perto…", "Você teve a impressão de ver um brilho diferente…")),
+        "alpha" to SensePhrases(near = listOf("Você sente que algo grande está por perto…", "O chão treme com passos pesados por perto…")),
+    )
+
     data class Values(
         val enabled: Boolean = true,
 
@@ -66,7 +99,22 @@ object SpawnAlertsConfig {
         val mythicalTag: String = " Mítico",
         val ultraBeastTag: String = " Ultracriatura",
         val paradoxTag: String = " Paradoxo",
+
+        // The players' sense, instead of the message above.
+        /** [CLASSIC]: the message naming the Pokémon; [SENSE]: a phrase that names nothing (the server log keeps the full line). */
+        val mode: String = CLASSIC,
+        /** In the sense mode, how near (same dimension) a player has to be to get a category's near phrase. */
+        val senseRadius: Int = 64,
+        /** In the sense mode, the categories every player hears of: the near phrase within [senseRadius], the far one beyond. The others reach only the near players. */
+        val senseEveryone: List<String> = listOf("legendary", "mythical", "mega", "ultra_beast", "paradox"),
+        /** The style of every phrase, with & codes. */
+        val senseStyle: String = "&7&o",
+        /** Each category's phrases, one picked at random per spawn for the near players and one for the far ones. */
+        val sensePhrases: Map<String, SensePhrases> = DEFAULT_SENSE_PHRASES,
     ) {
+        /** Whether the sense mode is on. */
+        val sense: Boolean get() = mode == SENSE
+
         /** [extraSpecies] as resource ids. */
         val extraSpeciesIds: Set<ResourceLocation> = speciesIds(extraSpecies)
 
@@ -94,6 +142,11 @@ object SpawnAlertsConfig {
         "message" to "The message. {pokemon} and {biome} show in each player's language; {tags} is the tags below; {location} is the parts turned on above. Colours with & codes (&6 gold, &e yellow, &a green, &f white, &7 grey...).",
         "coordinatesFormat" to "{x}, {y} and {z} are the block where the Pokémon spawned.",
         "shinyTag" to "Tag added after the name of a shiny Pokémon (the same for the other tags).",
+        "mode" to "\"classic\": the message above, naming the Pokémon. \"sense\": the players' sense instead, a phrase picked from sensePhrases that never names the Pokémon, the biome, the coordinates or what makes it rare (shiny, Alpha, legendary...); the server log keeps the full message, with the coordinates. What is announced still follows the options above (extraSpecies and announceAll only count in the classic mode).",
+        "senseRadius" to "Sense mode: players within this many blocks of the spawn (same dimension) get the category's near phrase.",
+        "senseEveryone" to "Sense mode: the categories every player hears of, the near phrase within senseRadius and the far one beyond (legendary, mythical, mega, ultra_beast, paradox, shiny, alpha). The others reach only the players within senseRadius.",
+        "senseStyle" to "Sense mode: the & codes every phrase starts with (&7&o: grey italic).",
+        "sensePhrases" to "Sense mode: per category, near and far phrases, one picked at random for each spawn. A Pokémon in several categories uses the first of: legendary, mythical, mega, ultra_beast, paradox, shiny, alpha.",
     )
 
     fun load(path: Path = FabricLoader.getInstance().configDir.resolve("${SpawnAlertsMod.MOD_ID}.json")) {
@@ -133,6 +186,11 @@ object SpawnAlertsConfig {
             mythicalTag = json.string("mythicalTag", d.mythicalTag),
             ultraBeastTag = json.string("ultraBeastTag", d.ultraBeastTag),
             paradoxTag = json.string("paradoxTag", d.paradoxTag),
+            mode = json.string("mode", d.mode).lowercase().takeIf { it == CLASSIC || it == SENSE } ?: d.mode,
+            senseRadius = json.int("senseRadius", d.senseRadius).coerceIn(1, 1_000_000),
+            senseEveryone = json.strings("senseEveryone", d.senseEveryone).map { it.lowercase() }.filter { it in SENSE_CATEGORIES }.distinct(),
+            senseStyle = json.string("senseStyle", d.senseStyle),
+            sensePhrases = json.phrases("sensePhrases", d.sensePhrases),
         )
         save(path)
     }
@@ -169,6 +227,19 @@ object SpawnAlertsConfig {
         out.addProperty("mythicalTag", v.mythicalTag)
         out.addProperty("ultraBeastTag", v.ultraBeastTag)
         out.addProperty("paradoxTag", v.paradoxTag)
+        out.addProperty("mode", v.mode)
+        out.addProperty("senseRadius", v.senseRadius)
+        out.add("senseEveryone", JsonArray().apply { v.senseEveryone.forEach { add(it) } })
+        out.addProperty("senseStyle", v.senseStyle)
+        out.add("sensePhrases", JsonObject().apply {
+            for (category in SENSE_CATEGORIES) {
+                val phrases = v.sensePhrases[category] ?: continue
+                add(category, JsonObject().apply {
+                    add("near", JsonArray().apply { phrases.near.forEach { add(it) } })
+                    add("far", JsonArray().apply { phrases.far.forEach { add(it) } })
+                })
+            }
+        })
         try {
             Files.createDirectories(path.parent)
             // No HTML escaping: the & colour codes stay readable in the file.
@@ -194,4 +265,14 @@ object SpawnAlertsConfig {
 
     private fun JsonObject.strings(key: String, default: List<String>): List<String> =
         runCatching { get(key)?.asJsonArray?.map { it.asString } }.getOrNull() ?: default
+
+    /** Every category's phrases: the file's lists where it has them, [default]'s for the rest. */
+    private fun JsonObject.phrases(key: String, default: Map<String, SensePhrases>): Map<String, SensePhrases> {
+        val categories = runCatching { get(key)?.asJsonObject }.getOrNull()
+        return SENSE_CATEGORIES.associateWith { category ->
+            val fallback = default[category] ?: SensePhrases(emptyList())
+            val entry = runCatching { categories?.get(category)?.asJsonObject }.getOrNull() ?: return@associateWith fallback
+            SensePhrases(entry.strings("near", fallback.near), entry.strings("far", fallback.far))
+        }
+    }
 }

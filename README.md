@@ -9,7 +9,9 @@ on **Fabric 1.21.1**.
 **Em português:** avisa no chat quando aparece um Pokémon raro (shiny, Alfa, lendário, mítico,
 ultracriatura, paradoxo): qual Pokémon e em qual bioma. Cada servidor escolhe na config o que é
 anunciado, se mostra coordenadas e o jogador mais perto, e quem recebe (todos, a mesma dimensão ou um
-raio). O mod roda no servidor: os jogadores não precisam instalar. O que muda em cada versão:
+raio). Ou o **modo sentido**: no lugar do nome, uma frase que não entrega nada ("Você sente uma presença
+poderosa por perto…"), para quem está perto e, nos mais raros, uma de longe para todo o servidor. O mod
+roda no servidor: os jogadores não precisam instalar. O que muda em cada versão:
 [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it works
@@ -22,6 +24,8 @@ raio). O mod roda no servidor: os jogadores não precisam instalar. O que muda e
   Cobblemon and the game, so each player reads them in their own language; a biome with no
   translation (from a data pack, for one) shows its id made readable (`volcanic_peaks` →
   "Volcanic Peaks").
+- Or, in the **sense mode**, the players never learn which Pokémon: they get a phrase picked at random
+  that names nothing (see below), and the server log keeps the full line for the staff.
 - Spawns another mod cancels are not announced.
 - `/spawnalerts reload` reads the config again without a restart, and `/spawnalerts test` shows you
   the message of a shiny Pikachu spawning where you stand (operators only).
@@ -82,6 +86,31 @@ another language.
 
 `{pokemon}` and `{biome}` can also be used directly in `message`; colours use `&` codes (`&6` gold,
 `&e` yellow, `&a` green, `&f` white, `&7` grey...).
+
+**The sense mode** (`"mode": "sense"`; the default is `"classic"`, the message above)
+
+No message to the players names the Pokémon, the biome, the coordinates or the nearest player, and no tag
+says shiny, Alpha, legendary or the like: a spawn is something the players *sense*. Each spawn the config
+announces falls into its most notable category (`legendary`, `mythical`, `mega`, `ultra_beast`,
+`paradox`, `shiny`, `alpha`, in that order); one of the category's near phrases goes to the players
+within `senseRadius` (same dimension) and, for the categories in `senseEveryone`, one of its far phrases
+to everyone else:
+
+> *Você sente uma presença poderosa por perto…* (a legendary, near)
+> *Uma presença poderosa despertou em algum lugar do mundo…* (the same legendary, for everyone else)
+> *Algo brilhou de relance por perto…* (a shiny, only near)
+
+What is announced still follows the options above (`extraSpecies` and `announceAll` only count in the
+classic mode). The server log gets the full classic line with the biome and the coordinates, so the staff
+still knows. With `playSound`, the near players hear a soft chime.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `mode` | `classic` | `sense` turns the sense mode on. |
+| `senseRadius` | `64` | How near (blocks, same dimension) a player gets the near phrase. |
+| `senseEveryone` | `["legendary", "mythical", "mega", "ultra_beast", "paradox"]` | The categories everyone hears of (near phrase within the radius, far phrase beyond); the others reach only the near players. |
+| `senseStyle` | `&7&o` | The `&` codes every phrase starts with (grey italic). |
+| `sensePhrases` | Brazilian Portuguese phrases | Per category, `near` and `far` lists; one phrase is picked at random per spawn. |
 
 ## Versions
 

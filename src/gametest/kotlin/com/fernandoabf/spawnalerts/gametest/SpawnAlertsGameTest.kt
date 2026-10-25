@@ -140,6 +140,74 @@ class SpawnAlertsGameTest : FabricGameTest {
             checks.finish()
         }
 
+    /**
+     * The sense mode: a legendary and a Mega reach everyone, the near phrase within the radius and the far one
+     * beyond; a shiny and an Alpha reach only the near players; a Pokémon in several categories uses the most
+     * notable; no line names the Pokémon, the place or what makes it rare, while the log line names them all.
+     */
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    fun theSenseModeTellsWithoutNaming(helper: GameTestHelper) =
+        withPlayers(helper, listOf(Vec3(2.5, 2.0, 2.5), Vec3(2.5, 2.0, 2.5))) { (near, far) ->
+            val checks = Checks(helper)
+            far.setPos(far.position().add(500.0, 0.0, 0.0))
+            val spawn = helper.absolutePos(BlockPos(4, 2, 4))
+            val phrases = SpawnAlertsConfig.DEFAULT_SENSE_PHRASES
+            val words = listOf("Mewtwo", "Charizard", "Pikachu", "Rattata", "Lendário", "Mítico", "Shiny", "Alfa", "Mega", "Ultracriatura", "Paradoxo")
+            withConfig(SpawnAlertsConfig.Values(mode = SpawnAlertsConfig.SENSE, announceMega = true)) {
+                fun sensed(what: String, pokemon: Pokemon, category: String, everyone: Boolean) {
+                    val lines = SpawnAlerts.sensed(pokemon, helper.level, spawn)
+                    val nearText = lines[near]?.message?.plainText()
+                    val farText = lines[far]?.message?.plainText()
+                    checks.check(lines[near]?.near == true && nearText in phrases.getValue(category).near) { "$what: the near player should get a $category near phrase, got '$nearText'" }
+                    if (everyone) {
+                        checks.check(lines[far]?.near == false && farText in phrases.getValue(category).far) { "$what: the far player should get a $category far phrase, got '$farText'" }
+                    } else {
+                        checks.check(far !in lines) { "$what: the far player should get nothing, got '$farText'" }
+                    }
+                    for ((_, line) in lines) {
+                        val text = line.message.string
+                        checks.check(words.none { it in text } && text.none { it.isDigit() }) { "$what: a line names something: '$text'" }
+                        checks.check(line.message.flatten().none { it.translationKey() != null }) { "$what: a line carries a name to translate: '$text'" }
+                        checks.check(line.message.flatten().any { it.style.isItalic && it.style.color == TextColor.fromLegacyFormat(ChatFormatting.GRAY) }) { "$what: the line should be grey italic" }
+                    }
+                }
+                sensed("a legendary", pokemon("mewtwo"), "legendary", everyone = true)
+                sensed("a mythical", pokemon("mew"), "mythical", everyone = true)
+                sensed("a Mega", pokemon("charizard").apply { forcedAspects = forcedAspects + "mega_x" }, "mega", everyone = true)
+                sensed("an Ultra Beast", pokemon("nihilego"), "ultra_beast", everyone = true)
+                sensed("a shiny", pokemon("pikachu").apply { shiny = true }, "shiny", everyone = false)
+                sensed("an Alpha", pokemon("rattata").apply { isAlpha = true }, "alpha", everyone = false)
+                sensed("a shiny Alpha legendary", pokemon("mewtwo").apply { shiny = true; isAlpha = true }, "legendary", everyone = true)
+                sensed("a shiny Alpha", pokemon("rattata").apply { shiny = true; isAlpha = true }, "shiny", everyone = false)
+                checks.check(SpawnAlerts.sensed(pokemon("rattata"), helper.level, spawn).isEmpty()) { "a plain Rattata should reach nobody" }
+
+                val logged = SpawnAlerts.announce(pokemon("mewtwo"), helper.level, spawn, biome("plains"))
+                checks.check(logged?.flatten()?.any { it.translationKey() == "cobblemon.species.mewtwo.name" } == true) { "the log line should name the Pokémon: ${logged?.string}" }
+                checks.check(logged?.flatten()?.any { it.translationKey() == "biome.minecraft.plains" } == true) { "the log line should name the biome: ${logged?.string}" }
+                checks.check("(x ${spawn.x}, y ${spawn.y}, z ${spawn.z})" in (logged?.plainText() ?: "")) { "the log line should give the block: ${logged?.plainText()}" }
+            }
+            // Each category's reach is the server's: a shiny can reach everyone, a legendary only the near players.
+            val custom = SpawnAlertsConfig.Values(
+                mode = SpawnAlertsConfig.SENSE,
+                senseEveryone = listOf("shiny"),
+                sensePhrases = SpawnAlertsConfig.DEFAULT_SENSE_PHRASES + ("shiny" to SpawnAlertsConfig.SensePhrases(near = listOf("perto"), far = listOf("longe"))),
+            )
+            withConfig(custom) {
+                val shiny = SpawnAlerts.sensed(pokemon("pikachu").apply { shiny = true }, helper.level, spawn)
+                checks.check(shiny[near]?.message?.plainText() == "perto" && shiny[far]?.message?.plainText() == "longe") { "a shiny for everyone: near '${shiny[near]?.message?.string}', far '${shiny[far]?.message?.string}'" }
+                checks.check(far !in SpawnAlerts.sensed(pokemon("mewtwo"), helper.level, spawn)) { "a legendary only for the near players" }
+            }
+            withConfig(SpawnAlertsConfig.Values(mode = SpawnAlertsConfig.SENSE, senseRadius = 1000)) {
+                checks.check(SpawnAlerts.sensed(pokemon("mewtwo"), helper.level, spawn)[far]?.near == true) { "within a radius of 1000 the far player is near" }
+            }
+            // The classic mode names the Pokémon, as before, and leaves the coordinates out.
+            val classic = SpawnAlerts.announce(pokemon("mewtwo"), helper.level, spawn, biome("plains"))
+            checks.check(classic?.flatten()?.any { it.translationKey() == "cobblemon.species.mewtwo.name" } == true && classic.plainText().none { it.isDigit() }) {
+                "the classic message: ${classic?.string}"
+            }
+            checks.finish()
+        }
+
     @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
     fun biomesWithoutATranslationFallBackToAReadableName(helper: GameTestHelper) {
         val checks = Checks(helper)
@@ -185,9 +253,40 @@ class SpawnAlertsGameTest : FabricGameTest {
             checks.check(server.commands.dispatcher.execute("spawnalerts reload", source) == 1) { "reload failed" }
             checks.check(SpawnAlertsConfig.values.showCoordinates && SpawnAlertsConfig.values.radius == 32) { "reload did not read the file: ${SpawnAlertsConfig.values}" }
             checks.check(server.commands.dispatcher.execute("spawnalerts test", source) == 1) { "test failed" }
+            SpawnAlertsConfig.values = SpawnAlertsConfig.Values(mode = SpawnAlertsConfig.SENSE)
+            checks.check(server.commands.dispatcher.execute("spawnalerts test", source) == 1) { "test failed in the sense mode" }
         } finally {
             SpawnAlertsConfig.values = previous
             if (before != null) Files.writeString(file, before) else Files.deleteIfExists(file)
+        }
+        checks.finish()
+    }
+
+    /** The sense mode's keys: a known mode, a radius of at least 1, known categories, and each category's phrases or the defaults. */
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    fun theSenseModeIsReadFromTheConfig(helper: GameTestHelper) {
+        val checks = Checks(helper)
+        val file = Files.createTempFile("spawnalerts", ".json")
+        val previous = SpawnAlertsConfig.values
+        try {
+            Files.writeString(file, """{ "mode": "SENSE", "senseRadius": 0, "senseEveryone": ["shiny", "Legendary", "nonsense"], "sensePhrases": { "shiny": { "near": ["um brilho"] } } }""")
+            SpawnAlertsConfig.load(file)
+            val loaded = SpawnAlertsConfig.values
+            checks.check(loaded.sense && loaded.mode == SpawnAlertsConfig.SENSE) { "mode ${loaded.mode}" }
+            checks.check(loaded.senseRadius == 1) { "a radius below 1 becomes 1, not ${loaded.senseRadius}" }
+            checks.check(loaded.senseEveryone == listOf("shiny", "legendary")) { "senseEveryone ${loaded.senseEveryone}" }
+            checks.check(loaded.sensePhrases["shiny"] == SpawnAlertsConfig.SensePhrases(near = listOf("um brilho"), far = emptyList())) { "shiny ${loaded.sensePhrases["shiny"]}" }
+            checks.check(loaded.sensePhrases["legendary"] == SpawnAlertsConfig.DEFAULT_SENSE_PHRASES["legendary"]) { "a category the file leaves out keeps its phrases" }
+            val written = Files.readString(file)
+            for (key in listOf("\"mode\"", "\"senseRadius\"", "\"senseEveryone\"", "\"senseStyle\"", "\"sensePhrases\"", "\"alpha\"", "&7&o", "Você sente")) {
+                checks.check(key in written) { "the rewritten config misses $key" }
+            }
+            Files.writeString(file, """{ "mode": "whisper" }""")
+            SpawnAlertsConfig.load(file)
+            checks.check(SpawnAlertsConfig.values.mode == SpawnAlertsConfig.CLASSIC) { "an unknown mode falls back to classic, not ${SpawnAlertsConfig.values.mode}" }
+        } finally {
+            SpawnAlertsConfig.values = previous
+            Files.deleteIfExists(file)
         }
         checks.finish()
     }

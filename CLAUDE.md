@@ -15,6 +15,12 @@ Roda só no servidor (não registra blocos, itens nem pacotes).
   shiny, `isAlpha`, rótulos `legendary`/`mythical`/`ultra_beast`/`paradox`, mais `extraSpecies`, menos
   `ignoredSpecies`. `{location}` junta as partes ligadas (bioma, coordenadas, jogador mais perto);
   `recipients` aplica `sameDimensionOnly`/`radius`.
+- **Modo sentido** (`mode: "sense"`, 1.2.0, pedido do dono do Farbound em 25/10/2026): os jogadores nunca
+  sabem qual Pokémon; `SpawnAlerts.senseCategory` acha a categoria mais notável (lendário, mítico, Mega,
+  ultracriatura, paradoxo, shiny, Alfa) e `sensed` dá a frase de perto a quem está no `senseRadius` (mesma
+  dimensão) e, nas categorias de `senseEveryone`, a de longe aos outros. O log do servidor recebe a linha
+  clássica com bioma e coordenadas. As frases (`sensePhrases`, por categoria, `near`/`far`) e o estilo
+  (`senseStyle`) ficam na config; `extraSpecies` e `announceAll` só valem no modo clássico.
 - `SpawnAlertsCommand`: `/spawnalerts reload` e `/spawnalerts test` (permissão 2), pelo
   `CommandRegistrationCallback` do Fabric API.
 - Só servidor ⇒ a mensagem é montada no servidor a partir do modelo da config (pt-BR por padrão);
