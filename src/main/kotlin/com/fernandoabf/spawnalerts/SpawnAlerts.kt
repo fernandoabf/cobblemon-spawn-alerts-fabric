@@ -14,6 +14,7 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
+import net.minecraft.world.BossEvent
 import net.minecraft.world.entity.EntitySelector
 import kotlin.random.Random
 
@@ -23,7 +24,8 @@ import kotlin.random.Random
  * (Cobblemon's species, the game's biomes), so each player reads them in their own language and the
  * mod only has to be on the server. In the sense mode the players get a phrase that names nothing
  * instead ("Você sente uma presença poderosa por perto…"), the near one within the sense radius and,
- * for the categories that reach everyone, the far one beyond; the server log keeps the full line.
+ * for the categories that reach everyone, the far one beyond; the server log keeps the full line. The near phrase also shows at
+ * the top of the screen for a few seconds (ScreenNotices), with a chime.
  */
 object SpawnAlerts {
     fun init() {
@@ -68,8 +70,10 @@ object SpawnAlerts {
             // The staff reads in the log what the players only sense: the Pokémon, the biome and the block.
             val full = message(pokemon, level, pos, biome, config.copy(showBiome = true, showCoordinates = true))
             level.server.sendSystemMessage(full)
+            val colour = colour(senseCategory(pokemon))
             for ((player, line) in sensed(pokemon, level, pos)) {
                 player.sendSystemMessage(line.message, config.actionBar)
+                if (config.nearScreen && line.near) ScreenNotices.show(player, line.message, colour, config.nearScreenSeconds * 20)
                 if (config.playSound && line.near) {
                     player.playNotifySound(SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 0.8f)
                 }
@@ -85,6 +89,17 @@ object SpawnAlerts {
             }
         }
         return message
+    }
+
+    /** The colour of a category's phrase at the top of the screen. */
+    fun colour(category: String?): BossEvent.BossBarColor = when (category) {
+        "legendary", "mythical" -> BossEvent.BossBarColor.PURPLE
+        "mega" -> BossEvent.BossBarColor.PINK
+        "ultra_beast" -> BossEvent.BossBarColor.BLUE
+        "paradox" -> BossEvent.BossBarColor.GREEN
+        "shiny" -> BossEvent.BossBarColor.YELLOW
+        "alpha" -> BossEvent.BossBarColor.RED
+        else -> BossEvent.BossBarColor.WHITE
     }
 
     /** The players who hear about a spawn at [pos] in [level]: everyone, the same dimension, or a radius. */

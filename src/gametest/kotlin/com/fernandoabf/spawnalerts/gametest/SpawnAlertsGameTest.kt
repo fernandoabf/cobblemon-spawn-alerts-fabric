@@ -3,6 +3,7 @@ package com.fernandoabf.spawnalerts.gametest
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties
 import com.cobblemon.mod.common.pokemon.Pokemon
 import com.fernandoabf.spawnalerts.MessageTemplate
+import com.fernandoabf.spawnalerts.ScreenNotices
 import com.fernandoabf.spawnalerts.SpawnAlerts
 import com.fernandoabf.spawnalerts.SpawnAlertsMod
 import com.fernandoabf.spawnalerts.config.SpawnAlertsConfig
@@ -18,6 +19,7 @@ import net.minecraft.network.chat.contents.PlainTextContents
 import net.minecraft.network.chat.contents.TranslatableContents
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.BossEvent
 import net.minecraft.world.phys.Vec3
 import java.nio.file.Files
 
@@ -350,6 +352,32 @@ class SpawnAlertsGameTest : FabricGameTest {
      * only helper that joins the player list.
      */
     @Suppress("DEPRECATION")
+    /** The near phrase stays at the top of the near player's screen for its seconds, in its category's colour; the far player gets none. */
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+    fun theNearPhraseShowsAtTheTopOfTheScreen(helper: GameTestHelper) =
+        withPlayers(helper, listOf(Vec3(2.5, 2.0, 2.5), Vec3(2.5, 2.0, 2.5))) { (near, far) ->
+            val checks = Checks(helper)
+            far.setPos(far.position().add(500.0, 0.0, 0.0))
+            val spawn = helper.absolutePos(BlockPos(4, 2, 4))
+            withConfig(SpawnAlertsConfig.Values(mode = SpawnAlertsConfig.SENSE, nearScreenSeconds = 2)) {
+                SpawnAlerts.announce(pokemon("mewtwo"), helper.level, spawn, biome("plains"))
+                val shown = ScreenNotices.shown(near)?.plainText()
+                checks.check(shown in SpawnAlertsConfig.DEFAULT_SENSE_PHRASES.getValue("legendary").near) { "the near player should see a legendary near phrase at the top, got '$shown'" }
+                checks.check(ScreenNotices.shown(far) == null) { "the far player should see nothing at the top" }
+                checks.check(SpawnAlerts.colour("legendary") == BossEvent.BossBarColor.PURPLE && SpawnAlerts.colour("shiny") == BossEvent.BossBarColor.YELLOW) { "the colours" }
+                val now = helper.level.server.tickCount.toLong()
+                ScreenNotices.tick(now + 20)
+                checks.check(ScreenNotices.shown(near) != null) { "one second in, the phrase is still there" }
+                ScreenNotices.tick(now + 41)
+                checks.check(ScreenNotices.shown(near) == null) { "after two seconds it goes" }
+            }
+            withConfig(SpawnAlertsConfig.Values(mode = SpawnAlertsConfig.SENSE, nearScreen = false)) {
+                SpawnAlerts.announce(pokemon("mewtwo"), helper.level, spawn, biome("plains"))
+                checks.check(ScreenNotices.shown(near) == null) { "with nearScreen off, only the chat" }
+            }
+            checks.finish()
+        }
+
     private fun withPlayers(helper: GameTestHelper, positions: List<Vec3>, test: (List<ServerPlayer>) -> Unit) {
         val players = positions.map { pos -> helper.makeMockServerPlayerInLevel().also { it.setPos(helper.absoluteVec(pos)) } }
         try {

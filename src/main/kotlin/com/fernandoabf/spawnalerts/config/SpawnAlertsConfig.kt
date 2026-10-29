@@ -105,6 +105,9 @@ object SpawnAlertsConfig {
         val mode: String = CLASSIC,
         /** In the sense mode, how near (same dimension) a player has to be to get a category's near phrase. */
         val senseRadius: Int = 64,
+        /** In the sense mode, the near phrase also at the top of the screen (a boss bar only that player sees), for [nearScreenSeconds]. */
+        val nearScreen: Boolean = true,
+        val nearScreenSeconds: Int = 6,
         /** In the sense mode, the categories every player hears of: the near phrase within [senseRadius], the far one beyond. The others reach only the near players. */
         val senseEveryone: List<String> = listOf("legendary", "mythical", "mega", "ultra_beast", "paradox"),
         /** The style of every phrase, with & codes. */
@@ -144,6 +147,8 @@ object SpawnAlertsConfig {
         "shinyTag" to "Tag added after the name of a shiny Pokémon (the same for the other tags).",
         "mode" to "\"classic\": the message above, naming the Pokémon. \"sense\": the players' sense instead, a phrase picked from sensePhrases that never names the Pokémon, the biome, the coordinates or what makes it rare (shiny, Alpha, legendary...); the server log keeps the full message, with the coordinates. What is announced still follows the options above (extraSpecies and announceAll only count in the classic mode).",
         "senseRadius" to "Sense mode: players within this many blocks of the spawn (same dimension) get the category's near phrase.",
+        "nearScreen" to "Sense mode: the near phrase also shows at the top of the screen (a boss bar only that player sees), with the sound, besides the chat.",
+        "nearScreenSeconds" to "Sense mode: how long the near phrase stays at the top of the screen.",
         "senseEveryone" to "Sense mode: the categories every player hears of, the near phrase within senseRadius and the far one beyond (legendary, mythical, mega, ultra_beast, paradox, shiny, alpha). The others reach only the players within senseRadius.",
         "senseStyle" to "Sense mode: the & codes every phrase starts with (&7&o: grey italic).",
         "sensePhrases" to "Sense mode: per category, near and far phrases, one picked at random for each spawn. A Pokémon in several categories uses the first of: legendary, mythical, mega, ultra_beast, paradox, shiny, alpha.",
@@ -188,6 +193,8 @@ object SpawnAlertsConfig {
             paradoxTag = json.string("paradoxTag", d.paradoxTag),
             mode = json.string("mode", d.mode).lowercase().takeIf { it == CLASSIC || it == SENSE } ?: d.mode,
             senseRadius = json.int("senseRadius", d.senseRadius).coerceIn(1, 1_000_000),
+            nearScreen = json.bool("nearScreen", d.nearScreen),
+            nearScreenSeconds = json.int("nearScreenSeconds", d.nearScreenSeconds).coerceIn(1, 60),
             senseEveryone = json.strings("senseEveryone", d.senseEveryone).map { it.lowercase() }.filter { it in SENSE_CATEGORIES }.distinct(),
             senseStyle = json.string("senseStyle", d.senseStyle),
             sensePhrases = json.phrases("sensePhrases", d.sensePhrases),
@@ -229,6 +236,8 @@ object SpawnAlertsConfig {
         out.addProperty("paradoxTag", v.paradoxTag)
         out.addProperty("mode", v.mode)
         out.addProperty("senseRadius", v.senseRadius)
+        out.addProperty("nearScreen", v.nearScreen)
+        out.addProperty("nearScreenSeconds", v.nearScreenSeconds)
         out.add("senseEveryone", JsonArray().apply { v.senseEveryone.forEach { add(it) } })
         out.addProperty("senseStyle", v.senseStyle)
         out.add("sensePhrases", JsonObject().apply {

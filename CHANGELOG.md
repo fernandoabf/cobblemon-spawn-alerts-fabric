@@ -3,6 +3,13 @@
 O que muda em cada versão. O jar de cada versão fica nas
 [Releases](https://github.com/fernandoabf/cobblemon-spawn-alerts-fabric/releases).
 
+## 1.3.0 — 2026-10-29
+
+- **A frase de perto também aparece no alto da tela** (`nearScreen`, ligado por padrão): no modo sentido, quem
+  está perto do spawn vê a frase numa barra no topo da tela por alguns segundos (`nearScreenSeconds`, 6 por padrão),
+  com o som, além do chat. A cor da barra muda com o tipo: roxo para lendário e mítico, rosa para Mega, azul para
+  ultracriatura, verde para paradoxo, amarelo para shiny e vermelho para Alfa. Só o servidor precisa do mod.
+
 ## 1.2.0 — 2026-10-25
 
 - **Modo sentido** (`"mode": "sense"`, desligado por padrão): no lugar do aviso com o nome, o jogador recebe

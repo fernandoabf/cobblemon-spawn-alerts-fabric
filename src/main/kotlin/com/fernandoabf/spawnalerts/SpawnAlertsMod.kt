@@ -15,6 +15,7 @@ object SpawnAlertsMod : ModInitializer {
     override fun onInitialize() {
         SpawnAlertsConfig.load()
         SpawnAlerts.init()
+        ScreenNotices.init()
         SpawnAlertsCommand.init()
         LOGGER.info("Spawn Alerts initialized (enabled: {}, announce all: {}).", SpawnAlertsConfig.values.enabled, SpawnAlertsConfig.values.announceAll)
     }
