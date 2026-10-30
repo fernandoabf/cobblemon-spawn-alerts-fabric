@@ -3,6 +3,14 @@
 O que muda em cada versão. O jar de cada versão fica nas
 [Releases](https://github.com/fernandoabf/cobblemon-spawn-alerts-fabric/releases).
 
+## 1.4.0 — 2026-10-30
+
+- **A frase de perto agora aparece no meio da tela, com um tremor**: no modo sentido, quem está perto do spawn vê a frase
+  embaixo de uma marca na cor do tipo (dourado para lendário e mítico, rosa para Mega, azul para ultracriatura, verde para
+  paradoxo, amarelo para shiny e vermelho para Alfa), e a tela treme três vezes (`shake` e `shakeTimes`, ligados por padrão),
+  sem dano. Os raros soam como um estrondo grave e distante; o shiny continua com o sino de ametista. Até a 1.3.0 a frase
+  ficava numa barra no topo. Só o servidor precisa do mod.
+
 ## 1.3.0 — 2026-10-29
 
 - **A frase de perto também aparece no alto da tela** (`nearScreen`, ligado por padrão): no modo sentido, quem

@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.api.pokemon.labels.CobblemonPokemonLabels
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
 import com.fernandoabf.spawnalerts.config.SpawnAlertsConfig
+import net.minecraft.ChatFormatting
 import net.minecraft.Util
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
@@ -14,7 +15,6 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
-import net.minecraft.world.BossEvent
 import net.minecraft.world.entity.EntitySelector
 import kotlin.random.Random
 
@@ -74,8 +74,14 @@ object SpawnAlerts {
             for ((player, line) in sensed(pokemon, level, pos)) {
                 player.sendSystemMessage(line.message, config.actionBar)
                 if (config.nearScreen && line.near) ScreenNotices.show(player, line.message, colour, config.nearScreenSeconds * 20)
+                if (config.shake && line.near) ScreenNotices.shake(player, config.shakeTimes)
                 if (config.playSound && line.near) {
-                    player.playNotifySound(SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 0.8f)
+                    // A shiny glints; the rest rumble, a far and low boom under the tremor.
+                    if (senseCategory(pokemon) == "shiny") {
+                        player.playNotifySound(SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 0.8f)
+                    } else {
+                        player.playNotifySound(SoundEvents.GENERIC_EXPLODE.value(), SoundSource.AMBIENT, 0.35f, 0.5f)
+                    }
                 }
             }
             return full
@@ -91,15 +97,15 @@ object SpawnAlerts {
         return message
     }
 
-    /** The colour of a category's phrase at the top of the screen. */
-    fun colour(category: String?): BossEvent.BossBarColor = when (category) {
-        "legendary", "mythical" -> BossEvent.BossBarColor.PURPLE
-        "mega" -> BossEvent.BossBarColor.PINK
-        "ultra_beast" -> BossEvent.BossBarColor.BLUE
-        "paradox" -> BossEvent.BossBarColor.GREEN
-        "shiny" -> BossEvent.BossBarColor.YELLOW
-        "alpha" -> BossEvent.BossBarColor.RED
-        else -> BossEvent.BossBarColor.WHITE
+    /** The colour of the mark over a category's phrase in the middle of the screen. */
+    fun colour(category: String?): ChatFormatting = when (category) {
+        "legendary", "mythical" -> ChatFormatting.GOLD
+        "mega" -> ChatFormatting.LIGHT_PURPLE
+        "ultra_beast" -> ChatFormatting.BLUE
+        "paradox" -> ChatFormatting.GREEN
+        "shiny" -> ChatFormatting.YELLOW
+        "alpha" -> ChatFormatting.RED
+        else -> ChatFormatting.WHITE
     }
 
     /** The players who hear about a spawn at [pos] in [level]: everyone, the same dimension, or a radius. */

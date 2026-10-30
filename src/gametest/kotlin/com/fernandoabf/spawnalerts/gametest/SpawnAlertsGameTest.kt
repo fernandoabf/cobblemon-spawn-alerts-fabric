@@ -19,7 +19,6 @@ import net.minecraft.network.chat.contents.PlainTextContents
 import net.minecraft.network.chat.contents.TranslatableContents
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.BossEvent
 import net.minecraft.world.phys.Vec3
 import java.nio.file.Files
 
@@ -352,7 +351,7 @@ class SpawnAlertsGameTest : FabricGameTest {
      * only helper that joins the player list.
      */
     @Suppress("DEPRECATION")
-    /** The near phrase stays at the top of the near player's screen for its seconds, in its category's colour; the far player gets none. */
+    /** The near phrase stays in the middle of the near player's screen for its seconds, with a tremor; the far player gets neither. */
     @GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
     fun theNearPhraseShowsAtTheTopOfTheScreen(helper: GameTestHelper) =
         withPlayers(helper, listOf(Vec3(2.5, 2.0, 2.5), Vec3(2.5, 2.0, 2.5))) { (near, far) ->
@@ -364,10 +363,12 @@ class SpawnAlertsGameTest : FabricGameTest {
                 val shown = ScreenNotices.shown(near)?.plainText()
                 checks.check(shown in SpawnAlertsConfig.DEFAULT_SENSE_PHRASES.getValue("legendary").near) { "the near player should see a legendary near phrase at the top, got '$shown'" }
                 checks.check(ScreenNotices.shown(far) == null) { "the far player should see nothing at the top" }
-                checks.check(SpawnAlerts.colour("legendary") == BossEvent.BossBarColor.PURPLE && SpawnAlerts.colour("shiny") == BossEvent.BossBarColor.YELLOW) { "the colours" }
+                checks.check(SpawnAlerts.colour("legendary") == net.minecraft.ChatFormatting.GOLD && SpawnAlerts.colour("shiny") == net.minecraft.ChatFormatting.YELLOW) { "the colours" }
+                checks.check(ScreenNotices.shaking(near) == 2 && ScreenNotices.shaking(far) == 0) { "a tremor of 3 shakes for the near player (one now, 2 to come): ${ScreenNotices.shaking(near)}" }
                 val now = helper.level.server.tickCount.toLong()
-                ScreenNotices.tick(now + 20)
+                for (t in now + 1..now + 20) ScreenNotices.tick(t)
                 checks.check(ScreenNotices.shown(near) != null) { "one second in, the phrase is still there" }
+                checks.check(ScreenNotices.shaking(near) == 0) { "the tremor's shakes are given in that second" }
                 ScreenNotices.tick(now + 41)
                 checks.check(ScreenNotices.shown(near) == null) { "after two seconds it goes" }
             }
